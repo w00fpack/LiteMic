@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Microphone Recorder - LiteMic
+GenericName=Microphone Recorder - LiteMic
+Categories=Audio
+Exec=litemic
+Icon=/usr/share/litemic/icons/litemic_run.png
+Terminal=false
+Type=Application
+Keywords=Audio;Sound;Mic;Recorder;

@@ -1,0 +1,87 @@
+#!/bin/bash
+
+# --- User Defined Variables __________________
+DL_PATH="~/recordings"
+
+# --- App Consants
+FILE_PREFERENCES=
+file_date=`date +%Y-%m-%d-%H%M_%S`
+export PID_MICROPHONE=$!
+
+echo 0 > /tmp/LITEMIC
+
+mkdir -p "$DL_PATH"
+
+# create a FIFO file, used to manage the I/O redirection from shell
+export PIPE=$(mktemp -u --tmpdir ${0##*/}.XXXXXXXX)
+mkfifo $PIPE
+
+# attach a file descriptor to the file
+exec 5<> $PIPE
+
+# add handler to manage process shutdown
+function on_exit() {
+    echo "quit"  >$PIPE
+    rm -f $PIPE
+}
+export -f on_exit
+trap on_exit EXIT
+
+function preferences_load()
+{
+	if [ ! -f $FILE_PREFERENCES ]; then
+
+	fi
+}
+
+function microphone_record()
+{
+	arecord -f S16_LE -c 2 -r 48000 \
+	 | lame - \
+	 "$DL_PATH/microphone_$file_date.mp3"  &> /dev/null &
+}
+
+# add handler for tray icon left click
+#see https://stackoverflow.com/questions/23564995/how-to-modify-a-global-variable-within-a-function-in-bash
+
+function on_click() {
+	if [ `cat /tmp/LITEMIC` == "0" ]; then
+		echo 1 > /tmp/LITEMIC
+		echo $RECORDING
+		RECORDING=1
+		export RECORDING=1
+
+		ps -p $PID_MICROPHONE >/dev/null && kill -STOP $PID_MICROPHONE
+
+		echo "icon:/usr/share/pixmaps/audio-recorder/microphone.png" >$PIPE
+		echo "visible:blink" >$PIPE
+	else
+		echo 0 > /tmp/LITEMIC
+
+		ps -p $PID_MICROPHONE >/dev/null && kill -CONT $PID_MICROPHONE
+
+		echo "icon:/usr/share/icons/gnome/24x24/devices/audio-input-microphone.png" >$PIPE
+		echo "visible:blink" >$PIPE
+	fi
+}
+export -f on_click
+
+# Note: if CLI funcationality wanted also, can use the following
+# read -p 'Press any key to finish recording' -n1 -s
+
+yad --notification \
+	--image="/usr/share/record_microphone/icons/record_microphone_pause.png \
+	--text="L-click=pause   M-click - stop/save recordings   R-click - menu
+ saving to $DL_PATH" \
+	--item-separator=~ \
+	--menu="Quit~quit~gtk-quit" \
+    --listen \
+	--command="bash -c 'on_click'" <&5
+
+ps -p $PID_MICROPHONE >/dev/null && kill -CONT $PID_MICROPHONE
+ps -p $PID_MICROPHONE >/dev/null && kill $PID_MICROPHONE
+
+# TODO: set up preferences to handle if want to play audio after done recording
+#FILENAME=$(yad --file --filename="$DL_PATH")
+#xdg-open  "$FILENAME" &
+
